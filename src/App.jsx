@@ -2,6 +2,27 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabaseClient'
 import './App.css'
 
+function formatarCPF(valor) {
+  return valor
+    .replace(/\D/g, '')
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+}
+
+function formatarTelefone(valor) {
+  return valor
+    .replace(/\D/g, '')
+    .slice(0, 11)
+    .replace(/(\d{2})(\d)/, '($1) $2')
+    .replace(/(\d{5})(\d)/, '$1-$2')
+}
+
+function protocolo(id) {
+  return `HD-${new Date().getFullYear()}-${String(id).padStart(4, '0')}`
+}
+
 function App() {
   const [usuarioLogado, setUsuarioLogado] = useState(null)
   const [emailLogin, setEmailLogin] = useState('')
@@ -36,10 +57,16 @@ function App() {
   const [editUsuarioId, setEditUsuarioId] = useState(null)
   const [chamadoSelecionado, setChamadoSelecionado] = useState(null)
   const [pesquisa, setPesquisa] = useState('')
+  const [toast, setToast] = useState(null)
 
   useEffect(() => {
     if (usuarioLogado) carregarTudo()
   }, [usuarioLogado])
+
+  function mostrarToast(titulo, mensagem) {
+    setToast({ titulo, mensagem })
+    setTimeout(() => setToast(null), 4500)
+  }
 
   async function login(e) {
     e.preventDefault()
@@ -123,11 +150,18 @@ function App() {
   async function salvarUsuario(e) {
     e.preventDefault()
 
+    if (usuarioForm.cpf && usuarioForm.cpf.length !== 14) {
+      alert('CPF inválido. Digite os 11 números.')
+      return
+    }
+
     if (editUsuarioId) {
       await supabase.from('usuarios').update(usuarioForm).eq('id', editUsuarioId)
+      mostrarToast('Usuário atualizado', 'As informações foram alteradas com sucesso.')
       setEditUsuarioId(null)
     } else {
       await supabase.from('usuarios').insert([usuarioForm])
+      mostrarToast('Usuário criado', 'Novo usuário cadastrado com sucesso.')
     }
 
     setUsuarioForm({
@@ -168,6 +202,8 @@ function App() {
 
     if (error) {
       alert('Não é possível excluir usuário com chamados vinculados.')
+    } else {
+      mostrarToast('Usuário excluído', 'O usuário foi removido com sucesso.')
     }
 
     carregarTudo()
@@ -176,14 +212,23 @@ function App() {
   async function abrirChamado(e) {
     e.preventDefault()
 
-    await supabase.from('chamados').insert([{
-      ...chamadoForm,
-      status: 'Aberto',
-      solicitante_id: usuarioLogado.id,
-      tecnico_id: null,
-      resposta_ti: null,
-      data_encerramento: null
-    }])
+    const { data, error } = await supabase
+      .from('chamados')
+      .insert([{
+        ...chamadoForm,
+        status: 'Aberto',
+        solicitante_id: usuarioLogado.id,
+        tecnico_id: null,
+        resposta_ti: null,
+        data_encerramento: null
+      }])
+      .select()
+      .single()
+
+    if (error) {
+      alert('Erro ao criar chamado.')
+      return
+    }
 
     setChamadoForm({
       titulo: '',
@@ -191,6 +236,11 @@ function App() {
       categoria: 'Sistemas',
       nivel: 'Médio'
     })
+
+    mostrarToast(
+      'Chamado criado com sucesso',
+      `Protocolo ${protocolo(data.id)}. Acompanhe o andamento em Meus Chamados.`
+    )
 
     carregarTudo()
   }
@@ -204,12 +254,25 @@ function App() {
       })
       .eq('id', id)
 
+    mostrarToast('Chamado assumido', `Você assumiu o chamado ${protocolo(id)}.`)
     carregarTudo()
   }
 
   async function resolverChamado(id) {
+    const chamado = consulta.find(c => c.id === id)
+
+    if (!chamado) {
+      alert('Chamado não encontrado.')
+      return
+    }
+
+    if (chamado.tecnico_id !== usuarioLogado.id) {
+      alert('Você precisa assumir este chamado antes de resolvê-lo.')
+      return
+    }
+
     if (!respostaForm.trim()) {
-      alert('Digite uma resposta da TI antes de resolver.')
+      alert('Digite uma resposta da TI antes de resolver o chamado.')
       return
     }
 
@@ -225,6 +288,7 @@ function App() {
 
     setRespostaForm('')
     setChamadoSelecionado(null)
+    mostrarToast('Chamado resolvido', `${protocolo(id)} foi finalizado com sucesso.`)
     carregarTudo()
   }
 
@@ -255,11 +319,11 @@ function App() {
       <div className="login-page">
         <form className="login-card" onSubmit={login}>
           <h1>HelpDesk Hospitalar</h1>
-          <p>Acesse sua área de atendimento</p>
+          <p>Acesso restrito ao sistema interno de chamados</p>
 
           <input
             type="email"
-            placeholder="E-mail"
+            placeholder="E-mail corporativo"
             value={emailLogin}
             onChange={(e) => setEmailLogin(e.target.value)}
             required
@@ -275,11 +339,7 @@ function App() {
 
           {erroLogin && <div className="erro-login">{erroLogin}</div>}
 
-          <button type="submit">Entrar</button>
-
-          <small>
-            Teste: admin@hospital.com / 123456
-          </small>
+          <button type="submit">Entrar no sistema</button>
         </form>
       </div>
     )
@@ -287,6 +347,13 @@ function App() {
 
   return (
     <div className="app">
+      {toast && (
+        <div className="toast">
+          <h3>{toast.titulo}</h3>
+          <p>{toast.mensagem}</p>
+        </div>
+      )}
+
       <aside>
         <h1>HelpDesk Hospitalar</h1>
         <p>{usuarioLogado.nome}</p>
@@ -321,13 +388,6 @@ function App() {
               <div className="card"><h3>{chamados.filter(c => c.status === 'Em andamento').length}</h3><p>Em andamento</p></div>
               <div className="card"><h3>{chamados.filter(c => c.status === 'Resolvido').length}</h3><p>Resolvidos</p></div>
               <div className="card"><h3>{chamados.filter(c => c.nivel === 'Crítico').length}</h3><p>Críticos</p></div>
-
-              {(usuarioLogado.perfil === 'admin' || usuarioLogado.perfil === 'tecnico') && (
-                <div className="card">
-                  <h3>{chamados.filter(c => c.tecnico_id === usuarioLogado.id && c.status === 'Resolvido').length}</h3>
-                  <p>Resolvidos por mim</p>
-                </div>
-              )}
             </div>
           </section>
         )}
@@ -347,10 +407,20 @@ function App() {
                 <option value="funcionario">Funcionário</option>
               </select>
 
-              <input placeholder="CPF" value={usuarioForm.cpf} onChange={e => setUsuarioForm({ ...usuarioForm, cpf: e.target.value })} />
+              <input
+                placeholder="CPF"
+                value={usuarioForm.cpf}
+                onChange={e => setUsuarioForm({ ...usuarioForm, cpf: formatarCPF(e.target.value) })}
+              />
+
               <input placeholder="Cargo" value={usuarioForm.cargo} onChange={e => setUsuarioForm({ ...usuarioForm, cargo: e.target.value })} required />
               <input placeholder="Setor" value={usuarioForm.setor} onChange={e => setUsuarioForm({ ...usuarioForm, setor: e.target.value })} required />
-              <input placeholder="Telefone" value={usuarioForm.telefone} onChange={e => setUsuarioForm({ ...usuarioForm, telefone: e.target.value })} />
+
+              <input
+                placeholder="Telefone"
+                value={usuarioForm.telefone}
+                onChange={e => setUsuarioForm({ ...usuarioForm, telefone: formatarTelefone(e.target.value) })}
+              />
 
               <button>{editUsuarioId ? 'Atualizar usuário' : 'Cadastrar usuário'}</button>
             </form>
@@ -422,25 +492,31 @@ function App() {
             <table>
               <thead>
                 <tr>
-                  <th>Nº</th><th>Título</th><th>Solicitante</th><th>Categoria</th><th>Nível</th><th>Status</th><th>Ações</th>
+                  <th>Protocolo</th><th>Título</th><th>Solicitante</th><th>Categoria</th><th>Nível</th><th>Status</th><th>Responsável</th><th>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {chamadosFiltrados.map(c => (
                   <tr key={c.id}>
-                    <td>CH-{String(c.id).padStart(4, '0')}</td>
+                    <td>{protocolo(c.id)}</td>
                     <td>{c.titulo}</td>
                     <td>{c.solicitante?.nome}</td>
                     <td>{c.categoria}</td>
                     <td>{c.nivel}</td>
                     <td><span className={classeStatus(c.status)}>{c.status}</span></td>
+                    <td>{c.tecnico?.nome || 'Não assumido'}</td>
                     <td>
                       <button onClick={() => setChamadoSelecionado(c)}>Detalhes</button>
 
                       {(usuarioLogado.perfil === 'tecnico' || usuarioLogado.perfil === 'admin') && c.status !== 'Resolvido' && (
                         <>
-                          <button onClick={() => assumirChamado(c.id)}>Assumir</button>
-                          <button onClick={() => setChamadoSelecionado(c)}>Responder</button>
+                          {c.tecnico_id === usuarioLogado.id ? (
+                            <span className="status andamento">Assumido por você</span>
+                          ) : (
+                            <button onClick={() => assumirChamado(c.id)}>
+                              {c.tecnico_id ? 'Assumir para mim' : 'Assumir'}
+                            </button>
+                          )}
                         </>
                       )}
                     </td>
@@ -459,13 +535,13 @@ function App() {
             <table>
               <thead>
                 <tr>
-                  <th>Chamado</th><th>Título</th><th>Status</th><th>Funcionário</th><th>Cargo</th><th>Setor</th><th>Técnico</th><th>Resposta TI</th>
+                  <th>Protocolo</th><th>Título</th><th>Status</th><th>Funcionário</th><th>Cargo</th><th>Setor</th><th>Técnico</th><th>Resposta TI</th>
                 </tr>
               </thead>
               <tbody>
                 {chamadosFiltrados.map(c => (
                   <tr key={c.id}>
-                    <td>CH-{String(c.id).padStart(4, '0')}</td>
+                    <td>{protocolo(c.id)}</td>
                     <td>{c.titulo}</td>
                     <td><span className={classeStatus(c.status)}>{c.status}</span></td>
                     <td>{c.solicitante?.nome}</td>
@@ -483,7 +559,7 @@ function App() {
         {chamadoSelecionado && (
           <div className="modal">
             <div className="modal-content">
-              <h2>Chamado CH-{String(chamadoSelecionado.id).padStart(4, '0')}</h2>
+              <h2>{protocolo(chamadoSelecionado.id)}</h2>
 
               <p><strong>Título:</strong> {chamadoSelecionado.titulo}</p>
               <p><strong>Descrição:</strong> {chamadoSelecionado.descricao}</p>
@@ -491,13 +567,17 @@ function App() {
               <p><strong>Categoria:</strong> {chamadoSelecionado.categoria}</p>
               <p><strong>Nível:</strong> {chamadoSelecionado.nivel}</p>
               <p><strong>Status:</strong> {chamadoSelecionado.status}</p>
-              <p><strong>Técnico:</strong> {chamadoSelecionado.tecnico?.nome || 'Não atribuído'}</p>
+              <p><strong>Técnico responsável:</strong> {chamadoSelecionado.tecnico?.nome || 'Não assumido'}</p>
               <p><strong>Resposta da TI:</strong> {chamadoSelecionado.resposta_ti || 'Ainda sem resposta.'}</p>
 
-              {(usuarioLogado.perfil === 'tecnico' || usuarioLogado.perfil === 'admin') && chamadoSelecionado.status !== 'Resolvido' && (
+              {(usuarioLogado.perfil === 'tecnico' || usuarioLogado.perfil === 'admin') && chamadoSelecionado.status !== 'Resolvido' && chamadoSelecionado.tecnico_id !== usuarioLogado.id && (
+                <p><strong>Ação necessária:</strong> assuma este chamado antes de resolvê-lo.</p>
+              )}
+
+              {(usuarioLogado.perfil === 'tecnico' || usuarioLogado.perfil === 'admin') && chamadoSelecionado.status !== 'Resolvido' && chamadoSelecionado.tecnico_id === usuarioLogado.id && (
                 <>
                   <textarea
-                    placeholder="Digite a resposta da TI"
+                    placeholder="Descreva a solução aplicada pela TI"
                     value={respostaForm}
                     onChange={(e) => setRespostaForm(e.target.value)}
                   />
