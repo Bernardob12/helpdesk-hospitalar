@@ -28,6 +28,7 @@ function App() {
   const [usuarios, setUsuarios] = useState([])
   const [chamados, setChamados] = useState([])
   const [consulta, setConsulta] = useState([])
+  const [categorias, setCategorias] = useState([])
 
   // Estado de modal de usuário
   const [modalUsuarioAberto, setModalUsuarioAberto] = useState(false)
@@ -49,7 +50,7 @@ function App() {
   const [chamadoForm, setChamadoForm] = useState({
     titulo: '',
     descricao: '',
-    categoria: 'Sistemas',
+    categoria_id: '',
     nivel: 'Médio'
   })
   const [respostaForm, setRespostaForm] = useState('')
@@ -102,6 +103,7 @@ function App() {
 
   async function carregarTudo() {
     await carregarUsuarios()
+    await carregarCategorias()
     await carregarChamados()
     await carregarConsulta()
   }
@@ -109,6 +111,19 @@ function App() {
   async function carregarUsuarios() {
     const { data } = await supabase.from('usuarios').select('*').order('id')
     setUsuarios(data || [])
+  }
+  async function carregarCategorias() {
+    const { data, error } = await supabase
+      .from('categorias')
+      .select('*')
+      .order('nome')
+    if (error) {
+      console.error('Erro ao carregar categorias:', error)
+      alert('Erro ao carregar categorias.')
+      return
+    }
+    console.log('Categorias carregadas:', data)
+    setCategorias(data || [])
   }
 
   async function carregarChamados() {
@@ -123,33 +138,37 @@ function App() {
   }
 
   async function carregarConsulta() {
-    let query = supabase
-      .from('chamados')
-      .select(`
-        *,
-        solicitante:usuarios!fk_solicitante (
-          nome,
-          cpf,
-          cargo,
-          setor,
-          email
-        ),
-        tecnico:usuarios!fk_tecnico (
-          nome,
-          cargo,
-          setor,
-          email
-        )
-      `)
-      .order('id')
+   let query = supabase
+    .from('chamados')
+    .select(`
+      *,
+      solicitante:usuarios!fk_solicitante (
+        nome,
+        cpf,
+        cargo,
+        setor,
+        email
+      ),
+      tecnico:usuarios!fk_tecnico (
+        nome,
+        cargo,
+        setor,
+        email
+      ),
+      categoria_dados:categorias!fk_categoria (
+        nome,
+        descricao
+      )
+    `)
+    .order('id')
 
-    if (usuarioLogado.perfil === 'funcionario') {
-      query = query.eq('solicitante_id', usuarioLogado.id)
-    }
-
-    const { data } = await query
-    setConsulta(data || [])
+   if (usuarioLogado.perfil === 'funcionario') {
+    query = query.eq('solicitante_id', usuarioLogado.id)
   }
+
+  const { data } = await query
+  setConsulta(data || [])
+}
 
   function abrirModalNovoUsuario() {
     setUsuarioForm({
@@ -235,40 +254,54 @@ function App() {
   }
 
   async function abrirChamado(e) {
-    e.preventDefault()
+  e.preventDefault()
 
-    const { data, error } = await supabase
-      .from('chamados')
-      .insert([{
-        ...chamadoForm,
-        status: 'Aberto',
-        solicitante_id: usuarioLogado.id,
-        tecnico_id: null,
-        resposta_ti: null,
-        data_encerramento: null
-      }])
-      .select()
-      .single()
+  const categoriaSelecionada = categorias.find(
+    cat => String(cat.id) === String(chamadoForm.categoria_id)
+  )
 
-    if (error) {
-      alert('Erro ao criar chamado.')
-      return
-    }
-
-    setChamadoForm({
-      titulo: '',
-      descricao: '',
-      categoria: 'Sistemas',
-      nivel: 'Médio'
-    })
-
-    mostrarToast(
-      'Chamado criado',
-      `${protocolo(data.id)} registrado com sucesso. Acompanhe em Meus chamados.`
-    )
-
-    carregarTudo()
+  if (!categoriaSelecionada) {
+    alert('Selecione uma categoria.')
+    return false
   }
+
+  const { data, error } = await supabase
+    .from('chamados')
+    .insert([{
+      titulo: chamadoForm.titulo,
+      descricao: chamadoForm.descricao,
+      categoria: categoriaSelecionada.nome,
+      categoria_id: Number(chamadoForm.categoria_id),
+      nivel: chamadoForm.nivel,
+      status: 'Aberto',
+      solicitante_id: usuarioLogado.id,
+      tecnico_id: null,
+      resposta_ti: null,
+      data_encerramento: null
+    }])
+    .select()
+    .single()
+
+  if (error) {
+    alert('Erro ao criar chamado.')
+    return false
+  }
+
+  setChamadoForm({
+    titulo: '',
+    descricao: '',
+    categoria_id: '',
+    nivel: 'Médio'
+  })
+
+  mostrarToast(
+    'Chamado criado',
+    `${protocolo(data.id)} registrado com sucesso. Acompanhe em Meus chamados.`
+  )
+
+  carregarTudo()
+  return true
+}
 
   async function assumirChamado(id) {
     await supabase
@@ -358,20 +391,6 @@ function App() {
           />
         )}
 
-        {tela === 'abrir' && usuarioLogado.perfil === 'funcionario' && (
-          <Chamados
-            usuarioLogado={usuarioLogado}
-            consulta={consulta}
-            pesquisa={pesquisaChamados}
-            setPesquisa={setPesquisaChamados}
-            chamadoForm={chamadoForm}
-            setChamadoForm={setChamadoForm}
-            onAbrirChamado={abrirChamado}
-            onDetalhes={setChamadoSelecionado}
-            onAssumir={assumirChamado}
-          />
-        )}
-
         {tela === 'chamados' && (
           <Chamados
             usuarioLogado={usuarioLogado}
@@ -380,6 +399,7 @@ function App() {
             setPesquisa={setPesquisaChamados}
             chamadoForm={chamadoForm}
             setChamadoForm={setChamadoForm}
+            categorias={categorias}
             onAbrirChamado={abrirChamado}
             onDetalhes={setChamadoSelecionado}
             onAssumir={assumirChamado}
@@ -388,7 +408,10 @@ function App() {
 
         {tela === 'consultas' && (
           <Consultas
+            usuarioLogado={usuarioLogado}
+            usuarios={usuarios}
             consulta={consulta}
+            categorias={categorias}
             pesquisa={pesquisaConsultas}
             setPesquisa={setPesquisaConsultas}
           />

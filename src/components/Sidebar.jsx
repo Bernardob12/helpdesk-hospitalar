@@ -5,22 +5,39 @@ export default function Sidebar({ usuarioLogado, tela, setTela, onLogout }) {
       <p>{usuarioLogado.nome}</p>
       <p className="perfil">{usuarioLogado.perfil.toUpperCase()}</p>
 
-      <button onClick={() => setTela('dashboard')}>Dashboard</button>
+      <button
+        className={tela === 'dashboard' ? 'menu-active' : ''}
+        onClick={() => setTela('dashboard')}
+      >
+        Dashboard
+      </button>
 
       {usuarioLogado.perfil === 'admin' && (
-        <button onClick={() => setTela('usuarios')}>Usuários</button>
+        <button
+          className={tela === 'usuarios' ? 'menu-active' : ''}
+          onClick={() => setTela('usuarios')}
+        >
+          Usuários
+        </button>
       )}
 
-      {usuarioLogado.perfil === 'funcionario' && (
-        <button onClick={() => setTela('abrir')}>Abrir chamado</button>
-      )}
-
-      <button onClick={() => setTela('chamados')}>
+      <button
+        className={tela === 'chamados' ? 'menu-active' : ''}
+        onClick={() => setTela('chamados')}
+      >
         {usuarioLogado.perfil === 'funcionario' ? 'Meus chamados' : 'Chamados'}
       </button>
 
-      <button onClick={() => setTela('consultas')}>Consultas</button>
-      <button className="danger-menu" onClick={onLogout}>Sair</button>
+      <button
+        className={tela === 'consultas' ? 'menu-active' : ''}
+        onClick={() => setTela('consultas')}
+      >
+        {usuarioLogado.perfil === 'funcionario' ? 'Chamados solucionados' : 'Consultas'}
+      </button>
+
+      <button className="danger-menu" onClick={onLogout}>
+        Sair
+      </button>
     </aside>
   )
 }
