@@ -1,0 +1,8 @@
+select
+c.nome as categoria,
+COUNT(ch.id) as quantidade
+from categorias c
+LEFT JOIN chamados ch
+on c.id = ch.categoria_id
+GROUP BY c.nome
+order by quantidade DESC;

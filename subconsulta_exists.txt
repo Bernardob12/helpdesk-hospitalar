@@ -1,0 +1,8 @@
+select *
+from usuarios u
+WHERE EXISTS
+(
+    select 1
+    from chamados c
+    WHERE c.solicitante_id = u.id
+);

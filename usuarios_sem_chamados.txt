@@ -1,0 +1,8 @@
+select *
+from usuarios
+where id NOT IN
+(
+    select solicitante_id
+    from chamados
+    WHERE solicitante_id IS NOT NULL
+);

@@ -1,0 +1,13 @@
+insert into chamados
+(protocolo,titulo,descricao,categoria_id,solicitante_id,tecnico_id,nivel,status)
+VALUES
+
+('CH-0001','Sistema não abre','Erro ao iniciar',1,2,1,'Alto','Resolvido'),
+
+('CH-0002','Internet lenta','Rede muito lenta',3,3,4,'Médio','Em andamento'),
+
+('CH-0003','Impressora parada','Não imprime',5,5,NULL,'Baixo','Aberto'),
+
+('CH-0004','Computador desligando','Desliga sozinho',4,2,1,'Alto','Resolvido'),
+
+('CH-0005','Erro no prontuário','Sistema trava',1,3,NULL,'Médio','Aberto');

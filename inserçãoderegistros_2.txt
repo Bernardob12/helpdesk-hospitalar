@@ -1,0 +1,12 @@
+insert into usuarios
+(nome,cpf,telefone,email,senha,cargo,setor,perfil)
+VALUES
+('Bernardo Reis','111.111.111-11','(21)99999-1111','bernardo@hospital.com','123','Analista','TI','tecnico'),
+
+('Kauã Fiuza','222.222.222-22','(21)99999-2222','ana@hospital.com','123','Enfermeira','Enfermagem','funcionario'),
+
+('Carlos Lima','333.333.333-33','(21)99999-3333','carlos@hospital.com','123','Médico','UTI','funcionario'),
+
+('Lucas Rocha','444.444.444-44','(21)99999-4444','lucas@hospital.com','123','Técnico TI','TI','tecnico'),
+
+('Maria Silva','555.555.555-55','(21)99999-5555','maria@hospital.com','123','Recepcionista','Recepção','funcionario');

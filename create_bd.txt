@@ -1,0 +1,34 @@
+create table categorias (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(50) UNIQUE NOT NULL,
+    descricao TEXT,
+    ativo BOOLEAN DEFAULT TRUE
+);
+
+create table usuarios (
+    id SERIAL PRIMARY KEY,
+    nome VARCHAR(100) NOT NULL,
+    cpf VARCHAR(14) UNIQUE NOT NULL,
+    telefone VARCHAR(15),
+    email VARCHAR(100) UNIQUE NOT NULL,
+    senha VARCHAR(255) NOT NULL,
+    cargo VARCHAR(60),
+    setor VARCHAR(60),
+    perfil VARCHAR(20),
+    ativo BOOLEAN DEFAULT TRUE
+);
+
+create table chamados (
+    id SERIAL PRIMARY KEY,
+    protocolo VARCHAR(20),
+    titulo VARCHAR(100) NOT NULL,
+    descricao TEXT,
+    categoria_id INTEGER REFERENCES categorias(id),
+    solicitante_id INTEGER REFERENCES usuarios(id),
+    tecnico_id INTEGER REFERENCES usuarios(id),
+    nivel VARCHAR(20),
+    status VARCHAR(20),
+    resposta_ti TEXT,
+    data_abertura TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    data_encerramento TIMESTAMP
+);

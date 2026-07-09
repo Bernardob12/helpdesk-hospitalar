@@ -1,0 +1,6 @@
+insert into categorias (nome, descricao) VALUES
+('Sistemas','Problemas em sistemas'),
+('Infraestrutura','Infraestrutura de TI'),
+('Rede','Internet e rede'),
+('Hardware','Equipamentos'),
+('Impressora','Problemas de impressão');
